@@ -1,12 +1,13 @@
-name: data_check
+nname: data_check
 channels:
   - conda-forge
   - defaults
 dependencies:
   - python=3.10.0
   - pandas=2.1.3
-  - pytest=6.2.2
-  - scipy=1.5.2
+  - pytest>=7.0.0
+  - scipy>=1.7.3          
+  - setuptools<=81        # <-- Pin here to guarantee pkg_resources is included
   - pip=23.3.1
   - pip:
       - mlflow==2.8.1

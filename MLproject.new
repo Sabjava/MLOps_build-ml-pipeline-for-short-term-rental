@@ -1,0 +1,54 @@
+name: nyc_airbnb_dev
+
+conda_env: conda.yml
+
+entry_points:
+  download:
+    parameters:
+      sample: {type: string, default: "sample.csv"}
+      artifact_name: {type: string, default: "raw_data.csv"}
+      artifact_type: {type: string, default: "raw_data"}
+      artifact_description: {type: string, default: "Raw file as downloaded"}
+    command: "python src/download/main.py --sample {sample} --artifact_name {artifact_name} --artifact_type {artifact_type} --artifact_description {artifact_description}"
+
+  basic_cleaning:
+    parameters:
+      input_artifact: {type: string, default: "raw_data.csv:latest"}
+      output_artifact: {type: string, default: "clean_sample.csv"}
+      output_type: {type: string, default: "clean_sample"}
+      output_description: {type: string, default: "Data with outliers and null values removed"}
+      min_price: {type: float, default: 10.0}
+      max_price: {type: float, default: 350.0}
+    command: "python src/basic_cleaning/run.py --input_artifact {input_artifact} --output_artifact {output_artifact} --output_type {output_type} --output_description {output_description} --min_price {min_price} --max_price {max_price}"
+
+  data_check:
+    parameters:
+      csv: {type: string, default: "clean_sample.csv:latest"}
+      kl_threshold: {type: float, default: 0.2}
+      min_price: {type: float, default: 10.0}
+      max_price: {type: float, default: 350.0}
+    command: "python src/data_check/run.py --csv {csv} --kl_threshold {kl_threshold} --min_price {min_price} --max_price {max_price}"
+
+  data_split:
+    parameters:
+      input_artifact: {type: string, default: "clean_sample.csv:latest"}
+      test_size: {type: float, default: 0.2}
+      random_seed: {type: int, default: 42}
+      stratify_by: {type: string, default: "neighbourhood_group"}
+    command: "python src/data_split/run.py --input_artifact {input_artifact} --test_size {test_size} --random_seed {random_seed} --stratify_by {stratify_by}"
+
+  train_random_forest:
+    parameters:
+      trainval_artifact: {type: string, default: "trainval_data.csv:latest"}
+      val_size: {type: float, default: 0.2}
+      random_seed: {type: int, default: 42}
+      stratify_by: {type: string, default: "neighbourhood_group"}
+      max_depth: {type: int, default: 15}
+      n_estimators: {type: int, default: 100}
+    command: "python src/train_random_forest/run.py --trainval_artifact {trainval_artifact} --val_size {val_size} --random_seed {random_seed} --stratify_by {stratify_by} --max_depth {max_depth} --n_estimators {n_estimators}"
+
+  test_regression_model:
+    parameters:
+      mlflow_model: {type: string, default: "random_forest_export:latest"}
+      test_dataset: {type: string, default: "test_data.csv:latest"}
+    command: "python src/test_regression_model/run.py --mlflow_model {mlflow_model} --test_dataset {test_dataset}"

@@ -1,0 +1,11 @@
+name: test_regression_model
+conda_env: conda.yml
+
+entry_points:
+  main:
+    parameters:
+      test_artifact:
+        type: string
+      model_artifact:
+        type: string
+    command: "python run.py --test_artifact {test_artifact} --model_artifact {model_artifact}"
