@@ -4,66 +4,64 @@ import logging
 import os
 import shutil
 import matplotlib.pyplot as plt
-
 import mlflow
 import json
-
 import pandas as pd
 import numpy as np
+import wandb
+
 from sklearn.compose import ColumnTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, FunctionTransformer
-
-import wandb
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error
 from sklearn.pipeline import Pipeline, make_pipeline
 
-
 def delta_date_feature(dates):
     date_sanitized = pd.DataFrame(dates).apply(pd.to_datetime)
-    return date_sanitized.apply(lambda d: (d.max() -d).dt.days, axis=0).to_numpy()
-
+    return date_sanitized.apply(lambda d: (d.max() - d).dt.days, axis=0).to_numpy()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)-15s %(message)s")
 logger = logging.getLogger()
 
-
 def go(args):
-
-    run = wandb.init(job_type="train_random_forest")
-    run.config.update(args)
-
+    # 1. Load configurations
     with open(args.rf_config) as fp:
         rf_config = json.load(fp)
-    run.config.update(rf_config)
-
-    rf_config['random_state'] = args.random_seed
+    
+    # 2. Merge all configs into one dictionary to avoid W&B update conflicts
+    config_dict = vars(args).copy()
+    config_dict.update(rf_config)
+    config_dict['random_state'] = args.random_seed
+    
+    # 3. Initialize W&B with the full configuration at once
+    run = wandb.init(job_type="train_random_forest", config=config_dict)
 
     ######################################
-    # CODE IMPLEMENTATION
+    # DATA LOADING
+    ######################################
     trainval_local_path = run.use_artifact(args.trainval_artifact).file()
-    ######################################
-
     X = pd.read_csv(trainval_local_path)
     y = X.pop("price")
 
     logger.info(f"Minimum price: {y.min()}, Maximum price: {y.max()}")
 
     X_train, X_val, y_train, y_val = train_test_split(
-        X, y, test_size=args.val_size, stratify=X[args.stratify_by] if args.stratify_by != "none" else None, random_state=args.random_seed
+        X, y, test_size=args.val_size, 
+        stratify=X[args.stratify_by] if args.stratify_by != "none" else None, 
+        random_state=args.random_seed
     )
 
     logger.info("Preparing sklearn pipeline")
-    sk_pipe, processed_features = get_inference_pipeline(rf_config, args.max_tfidf_features)
+    # Access max_tfidf_features directly from the W&B run config
+    sk_pipe, processed_features = get_inference_pipeline(
+        rf_config, run.config.max_tfidf_features
+    )
 
     logger.info("Fitting")
-    ######################################
-    # CODE IMPLEMENTATION
     sk_pipe.fit(X_train, y_train)
-    ######################################
 
     logger.info("Scoring")
     r_squared = sk_pipe.score(X_val, y_val)
@@ -77,13 +75,8 @@ def go(args):
     if os.path.exists("random_forest_dir"):
         shutil.rmtree("random_forest_dir")
 
-    ######################################
-    # CODE IMPLEMENTATION
     mlflow.sklearn.save_model(sk_pipe, "random_forest_dir")
-    ######################################
 
-    ######################################
-    # CODE IMPLEMENTATION
     artifact = wandb.Artifact(
         name=args.output_artifact,
         type="model_export",
@@ -92,18 +85,13 @@ def go(args):
     )
     artifact.add_dir("random_forest_dir")
     run.log_artifact(artifact)
-    ######################################
 
     fig_feat_imp = plot_feature_importance(sk_pipe, processed_features)
 
-    ######################################
-    # CODE IMPLEMENTATION
     run.summary['r2'] = r_squared
     run.summary['mae'] = mae
-    ######################################
-
     run.log({"feature_importance": wandb.Image(fig_feat_imp)})
-
+    run.finish()
 
 def plot_feature_importance(pipe, feat_names):
     feat_imp = pipe["random_forest"].feature_importances_[: len(feat_names)-1]
@@ -116,21 +104,23 @@ def plot_feature_importance(pipe, feat_names):
     fig_feat_imp.tight_layout()
     return fig_feat_imp
 
-
 def get_inference_pipeline(rf_config, max_tfidf_features):
+    # 1. Clean parameters: Remove max_tfidf_features so RandomForestRegressor doesn't crash
+    model_params = rf_config.copy()
+    if 'max_tfidf_features' in model_params:
+        del model_params['max_tfidf_features']
+
     ordinal_categorical = ["room_type"]
     non_ordinal_categorical = ["neighbourhood_group"]
     ordinal_categorical_preproc = OrdinalEncoder()
 
-    ######################################
-    # CODE IMPLEMENTATION
     non_ordinal_categorical_preproc = make_pipeline(
         SimpleImputer(strategy="most_frequent"),
         OneHotEncoder(handle_unknown="ignore")
     )
-    ######################################
 
-    zero_imputed = ["minimum_nights", "number_of_reviews", "reviews_per_month", "calculated_host_listings_count", "availability_365", "longitude", "latitude"]
+    zero_imputed = ["minimum_nights", "number_of_reviews", "reviews_per_month", 
+                    "calculated_host_listings_count", "availability_365", "longitude", "latitude"]
     zero_imputer = SimpleImputer(strategy="constant", fill_value=0)
 
     date_imputer = make_pipeline(
@@ -157,18 +147,16 @@ def get_inference_pipeline(rf_config, max_tfidf_features):
     )
 
     processed_features = ordinal_categorical + non_ordinal_categorical + zero_imputed + ["last_review", "name"]
-    random_Forest = RandomForestRegressor(**rf_config)
+    
+    # 2. Use the cleaned model_params
+    random_Forest = RandomForestRegressor(**model_params)
 
-    ######################################
-    # CODE IMPLEMENTATION
     sk_pipe = Pipeline(steps=[("preprocessor", preprocessor), ("random_forest", random_Forest)])
-    ######################################
 
     return sk_pipe, processed_features
 
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Basic cleaning of dataset")
+    parser = argparse.ArgumentParser(description="Train Random Forest")
     parser.add_argument("--trainval_artifact", type=str)
     parser.add_argument("--val_size", type=float)
     parser.add_argument("--random_seed", type=int, default=42)
