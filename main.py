@@ -101,7 +101,7 @@ def go(config: DictConfig):
                 "main",
                 parameters={
                     "test_artifact": "test_sample:latest", # matching your W&B naming scheme
-                    "model_artifact": "random_forest_export:latest" # matching the output from step 1
+                    "model_artifact": "random_forest_export:prod" # matching the output from step 1
                 },
             )
 
