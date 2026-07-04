@@ -1,6 +1,7 @@
 # Build an ML Pipeline for Short-Term Rental Prices in NYC
 
 Project runs and W&B https://wandb.ai/svetlana-bogdanova21418-amdocs/nyc_airbnb?nw=nwusersvetlanabogdanova21418
+
 Github repo: https://github.com/Sabjava/MLOps_build-ml-pipeline-for-short-term-rental
 
 In this project we  build such a pipeline.
