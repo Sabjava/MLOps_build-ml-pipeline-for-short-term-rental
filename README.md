@@ -1,6 +1,6 @@
 # Build an ML Pipeline for Short-Term Rental Prices in NYC
 
-Project runs reports in  W&B https://wandb.ai/svetlana-bogdanova21418-amdocs/nyc_airbnb?nw=nwusersvetlanabogdanova21418
+Project runs reports in  W&B [https://wandb.ai/svetlana-bogdanova21418-amdocs/nyc_airbnb?nw=nwusersvetlanabogdanova21418](https://wandb.ai/svetlana-bogdanova21418-amdocs/nyc_airbnb/reports/Short-Term-Rental-Price-Prediction-Random-Forest-Pipeline-Results--VmlldzoxNzQxNjgyMw?accessToken=v6rf5no14zx79456ii14yyyig1m98757txz8at0cqgu0dg98z3um1gff76g5sc8g)
 
 Github repo: https://github.com/Sabjava/MLOps_build-ml-pipeline-for-short-term-rental
 
